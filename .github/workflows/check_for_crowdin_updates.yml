@@ -3,6 +3,7 @@ name: Check for Crowdin Updates
 on:
   schedule:
     - cron: '0 12 * * 1'  # Every Monday at 12:00 PM UTC, which is 10:00 PM Sydney time (AEST)
+  workflow_dispatch:
 
 jobs:
   fetch_convert_and_diff_translations:
