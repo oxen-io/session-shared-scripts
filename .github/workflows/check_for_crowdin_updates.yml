@@ -49,7 +49,7 @@ jobs:
             618696 \
             407522 \
             36 \
-            "${{ github.workspace }}/raw_translations"
+            "${{ github.workspace }}/raw_translations" \
             --skip-untranslated-strings
       - name: Prepare Android Strings
         run: |
