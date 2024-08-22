@@ -73,8 +73,12 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           path: 'android'
+          token: ${{ secrets.CROWDIN_PR_TOKEN }}
           title: Update translations from Crowdin
-          body: This PR includes the latest translations from Crowdin
+          body: |
+            This PR includes the latest translations from Crowdin
+
+            Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
           branch: feature/update-translations
           commit-message: "[Automated] Update translations from Crowdin"
           delete-branch: true
@@ -82,8 +86,12 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           path: 'desktop'
+          token: ${{ secrets.CROWDIN_PR_TOKEN }}
           title: Update translations from Crowdin
-          body: This PR includes the latest translations from Crowdin
+          body: |
+            This PR includes the latest translations from Crowdin
+
+            Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
           branch: feature/update-translations
           commit-message: "[Automated] Update translations from Crowdin"
           delete-branch: true
@@ -91,8 +99,12 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           path: 'ios'
+          token: ${{ secrets.CROWDIN_PR_TOKEN }}
           title: Update translations from Crowdin
-          body: This PR includes the latest translations from Crowdin
+          body: |
+            This PR includes the latest translations from Crowdin
+
+            Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
           branch: feature/update-translations
           commit-message: "[Automated] Update translations from Crowdin"
           delete-branch: true
