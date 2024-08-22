@@ -1,0 +1,97 @@
+name: Check for Crowdin Updates
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'  # Every Monday at 12:00 PM UTC, which is 10:00 PM Sydney time (AEST)
+
+jobs:
+  fetch_convert_and_diff_translations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo Content
+        uses: actions/checkout@v4
+        with:
+          path: 'scripts'
+          ref: 'feature/automatic-crowdin-updates'
+      - name: Checkout Android
+        uses: actions/checkout@v4
+        with:
+          repository: 'oxen-io/session-android'
+          path: 'android'
+          ref: 'dev'
+      - name: Checkout Desktop
+        uses: actions/checkout@v4
+        with:
+          repository: 'oxen-io/session-desktop'
+          path: 'desktop'
+          ref: 'unstable'
+      - name: Checkout iOS
+        uses: actions/checkout@v4
+        with:
+          repository: 'oxen-io/session-ios'
+          path: 'ios'
+          ref: 'dev'
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.8
+          cache: 'pip' # caching pip dependencies
+      - name: Install Dependencies
+        run: |
+          pip install -r ${{ github.workspace }}/scripts/crowdin/requirements.txt
+      - name: Download Translations
+        env:
+          CROWDIN_API_TOKEN: ${{ secrets.CROWDIN_API_TOKEN }}
+        run: |
+          python "${{ github.workspace }}/scripts/crowdin/download_translations_from_crowdin.py" \
+            "$CROWDIN_API_TOKEN" \
+            618696 \
+            407522 \
+            36 \
+            "${{ github.workspace }}/raw_translations"
+            --skip-untranslated-strings
+      - name: Prepare Android Strings
+        run: |
+          python "${{ github.workspace }}/scripts/crowdin/generate_android_strings.py" \
+            "${{ github.workspace }}/raw_translations" \
+            "${{ github.workspace }}/android/app/src/main/res" \
+            "${{ github.workspace }}/android/session-android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt"
+      - name: Prepare Desktop Strings
+        run: |
+          python "${{ github.workspace }}/scripts/crowdin/generate_desktop_strings.py" \
+            "${{ github.workspace }}/raw_translations" \
+            "${{ github.workspace }}/desktop/_locales" \
+            "${{ github.workspace }}/desktop/ts/localization/constants.ts"
+      - name: Prepare iOS Strings
+        run: |
+          python "${{ github.workspace }}/scripts/crowdin/generate_ios_strings.py" \
+            "${{ github.workspace }}/raw_translations" \
+            "${{ github.workspace }}/ios/Session/Meta" \
+            "${{ github.workspace }}/ios/Session/Meta/Constants.swift"
+      - name: Create Android Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          path: 'android'
+          title: Update translations from Crowdin
+          body: This PR includes the latest translations from Crowdin
+          branch: feature/update-translations
+          commit-message: "[Automated] Update translations from Crowdin"
+          delete-branch: true
+      - name: Create Desktop Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          path: 'desktop'
+          title: Update translations from Crowdin
+          body: This PR includes the latest translations from Crowdin
+          branch: feature/update-translations
+          commit-message: "[Automated] Update translations from Crowdin"
+          delete-branch: true
+      - name: Create iOS Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          path: 'ios'
+          title: Update translations from Crowdin
+          body: This PR includes the latest translations from Crowdin
+          branch: feature/update-translations
+          commit-message: "[Automated] Update translations from Crowdin"
+          delete-branch: true
