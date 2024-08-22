@@ -77,10 +77,13 @@ def escape_android_string(text):
     text = text.replace("<br/>", "\\n")
     return text
 
-def generate_android_xml(translations):
+def generate_android_xml(translations, app_name):
     sorted_translations = sorted(translations.items())
     result = '<?xml version="1.0" encoding="utf-8"?>\n'
     result += '<resources>\n'
+
+    if app_name is not None:
+        result += f'    <string name="app_name" translatable="false">{app_name}</string>\n'
 
     for resname, target in sorted_translations:
         if isinstance(target, dict):  # It's a plural group
@@ -97,19 +100,20 @@ def generate_android_xml(translations):
 
     return result
 
-def convert_xliff_to_android_xml(input_file, output_dir, source_locale, locale):
+def convert_xliff_to_android_xml(input_file, output_dir, source_locale, locale, app_name):
     if not os.path.exists(input_file):
         raise FileNotFoundError(f"Could not find '{input_file}' in raw translations directory")
 
-    # Parse the XLIFF and convert to XML
+    # Parse the XLIFF and convert to XML (only include the 'app_name' entry in the source language)
+    is_source_language = (locale == source_locale)
     translations = parse_xliff(input_file)
-    output_data = generate_android_xml(translations)
+    output_data = generate_android_xml(translations, app_name if is_source_language else None)
 
     # Generate output files
     language_code = locale.split('-')[0]
     region_code = locale.split('-')[1] if '-' in locale else None
 
-    if locale == source_locale:
+    if is_source_language:
         language_output_dir = os.path.join(output_dir, 'values')
     else:
         language_output_dir = os.path.join(output_dir, f'values-{language_code}')
@@ -137,6 +141,7 @@ def convert_non_translatable_strings_to_kotlin(input_file, output_path):
 
     entries = non_translatable_strings_data['data']
     max_key_length = max(len(entry['data']['note'].upper()) for entry in entries)
+    app_name = None
 
     # Output the file in the desired format
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -151,7 +156,12 @@ def convert_non_translatable_strings_to_kotlin(input_file, output_path):
             text = entry['data']['text']
             file.write(f'    const val {key:<{max_key_length}} = "{text}"\n')
 
+            if key == 'APP_NAME':
+                app_name = text
+
         file.write('}\n')
+
+    return app_name
 
 def convert_all_files(input_directory):
     # Extract the project information
@@ -174,7 +184,7 @@ def convert_all_files(input_directory):
     # Convert the non-translatable strings to the desired format
     print(f"\033[2K{Fore.WHITE}⏳ Generating static strings file...{Style.RESET_ALL}", end='\r')
     non_translatable_strings_file = os.path.join(input_directory, "_non_translatable_strings.json")
-    convert_non_translatable_strings_to_kotlin(non_translatable_strings_file, NON_TRANSLATABLE_STRINGS_OUTPUT_PATH)
+    app_name = convert_non_translatable_strings_to_kotlin(non_translatable_strings_file, NON_TRANSLATABLE_STRINGS_OUTPUT_PATH)
     print(f"\033[2K{Fore.GREEN}✅ Static string generation complete{Style.RESET_ALL}")
 
     # Convert the XLIFF data to the desired format
@@ -184,7 +194,7 @@ def convert_all_files(input_directory):
         lang_locale = language['locale']
         print(f"\033[2K{Fore.WHITE}⏳ Converting translations for {lang_locale} to target format...{Style.RESET_ALL}", end='\r')
         input_file = os.path.join(input_directory, f"{lang_locale}.xliff")
-        convert_xliff_to_android_xml(input_file, TRANSLATIONS_OUTPUT_DIRECTORY, source_locale, lang_locale)
+        convert_xliff_to_android_xml(input_file, TRANSLATIONS_OUTPUT_DIRECTORY, source_locale, lang_locale, app_name)
     print(f"\033[2K{Fore.GREEN}✅ All conversions complete{Style.RESET_ALL}")
 
 if __name__ == "__main__":
