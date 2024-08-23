@@ -74,8 +74,9 @@ jobs:
         with:
           path: 'android'
           token: ${{ secrets.CROWDIN_PR_TOKEN }}
-          title: Update translations from Crowdin
+          title: "[Automated] Update translations from Crowdin"
           body: |
+            [Automated]
             This PR includes the latest translations from Crowdin
 
             Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
@@ -87,8 +88,9 @@ jobs:
         with:
           path: 'desktop'
           token: ${{ secrets.CROWDIN_PR_TOKEN }}
-          title: Update translations from Crowdin
+          title: "[Automated] Update translations from Crowdin"
           body: |
+            [Automated]
             This PR includes the latest translations from Crowdin
 
             Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
@@ -100,8 +102,9 @@ jobs:
         with:
           path: 'ios'
           token: ${{ secrets.CROWDIN_PR_TOKEN }}
-          title: Update translations from Crowdin
+          title: "[Automated] Update translations from Crowdin"
           body: |
+            [Automated]
             This PR includes the latest translations from Crowdin
 
             Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
