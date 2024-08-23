@@ -99,6 +99,7 @@ def convert_xliff_to_json(input_file, output_dir, locale, locale_two_letter_code
     with open(output_file, 'w', encoding='utf-8') as file:
         json.dump(converted_translations, file, ensure_ascii=False, indent=2)
         file.write('\n')
+        file.write('\n')
 
 def convert_non_translatable_strings_to_type_script(input_file, output_path):
     if not os.path.exists(input_file):
