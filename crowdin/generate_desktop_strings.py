@@ -96,8 +96,9 @@ def convert_xliff_to_json(input_file, output_dir, locale, locale_two_letter_code
     output_file = os.path.join(locale_output_dir, 'messages.json')
     os.makedirs(locale_output_dir, exist_ok=True)
 
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(converted_translations, f, ensure_ascii=False, indent=2)
+    with open(output_file, 'w', encoding='utf-8') as file:
+        json.dump(converted_translations, file, ensure_ascii=False, indent=2)
+        file.write('\n')
 
 def convert_non_translatable_strings_to_type_script(input_file, output_path):
     if not os.path.exists(input_file):
@@ -121,6 +122,7 @@ def convert_non_translatable_strings_to_type_script(input_file, output_path):
             file.write(f"  {key} = '{text}',\n")
 
         file.write('}\n')
+        file.write('\n')
 
 def convert_all_files(input_directory):
     # Extract the project information

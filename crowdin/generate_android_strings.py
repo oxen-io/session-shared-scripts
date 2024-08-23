@@ -160,6 +160,7 @@ def convert_non_translatable_strings_to_kotlin(input_file, output_path):
                 app_name = text
 
         file.write('}\n')
+        file.write('\n')
 
     return app_name
 
