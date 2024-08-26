@@ -68,7 +68,7 @@ jobs:
           python "${{ github.workspace }}/scripts/crowdin/generate_ios_strings.py" \
             "${{ github.workspace }}/raw_translations" \
             "${{ github.workspace }}/ios/Session/Meta" \
-            "${{ github.workspace }}/ios/Session/Meta/Constants.swift"
+            "${{ github.workspace }}/ios/SessionUtilitiesKit/General/Constants.swift"
       - name: Create Android Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
