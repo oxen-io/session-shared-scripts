@@ -206,7 +206,7 @@ def convert_non_translatable_strings_to_swift(input_file, output_path):
         for entry in entries:
             key = entry['data']['note']
             text = entry['data']['text']
-            file.write(f'    static let {key}: String = "{text}"\n')
+            file.write(f'    public static let {key}: String = "{text}"\n')
 
         file.write('}\n')
         file.write('\n')
