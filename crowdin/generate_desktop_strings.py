@@ -12,13 +12,15 @@ from colorama import Fore, Style, init
 # Format: 'input_locale': 'output_path'
 LOCALE_PATH_MAPPING = {
     'en-US': 'en',
-    'es-419': 'es_419',
-    'hy-AM': 'hy-AM',
     'kmr-TR': 'kmr',
-    'pt-BR': 'pt_BR',
-    'pt-PT': 'pt_PT',
-    'zh-CN': 'zh_CN',
-    'zh-TW': 'zh_TW'
+    # Note: we don't want to replace - with _ anymore.
+    # We still need those mappings, otherwise they fallback to their 2 letter codes
+    'es-419': 'es-419',
+    'hy-AM': 'hy-AM',
+    'pt-BR': 'pt-BR',
+    'pt-PT': 'pt-PT',
+    'zh-CN': 'zh-CN',
+    'zh-TW': 'zh-TW'
     # Add more mappings as needed
 }
 
