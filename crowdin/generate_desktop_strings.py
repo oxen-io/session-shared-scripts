@@ -118,6 +118,8 @@ def convert_non_translatable_strings_to_type_script(input_file, output_path, rtl
     # Output the file in the desired format
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
+    joined_rtl_locales = {", ".join(f"'{locale}'" for locale in rtl_locales)}
+
     with open(output_path, 'w', encoding='utf-8') as file:
         file.write('export enum LOCALE_DEFAULTS {\n')
         for entry in entries:
@@ -127,7 +129,7 @@ def convert_non_translatable_strings_to_type_script(input_file, output_path, rtl
 
         file.write('}\n')
         file.write('\n')
-        file.write(f"export const rtlLocales = [{", ".join(f"'{locale}'" for locale in rtl_locales)}] as const\n")
+        file.write(f"export const rtlLocales = [{joined_rtl_locales}] as const;\n")
         file.write('\n')
 
 def convert_all_files(input_directory):
