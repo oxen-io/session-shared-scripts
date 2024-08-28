@@ -103,7 +103,7 @@ def convert_xliff_to_json(input_file, output_dir, locale, locale_two_letter_code
         file.write('\n')
         file.write('\n')
 
-def convert_non_translatable_strings_to_type_script(input_file, output_path):
+def convert_non_translatable_strings_to_type_script(input_file, output_path, rtl_languages):
     if not os.path.exists(input_file):
         raise FileNotFoundError(f"Could not find '{input_file}' in raw translations directory")
 
@@ -113,6 +113,7 @@ def convert_non_translatable_strings_to_type_script(input_file, output_path):
         non_translatable_strings_data = json.load(file)
 
     entries = non_translatable_strings_data['data']
+    rtl_locales = sorted([lang["twoLettersCode"] for lang in rtl_languages])
 
     # Output the file in the desired format
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -125,6 +126,8 @@ def convert_non_translatable_strings_to_type_script(input_file, output_path):
             file.write(f"  {key} = '{text}',\n")
 
         file.write('}\n')
+        file.write('\n')
+        file.write(f"export const rtlLocales = [{", ".join(f"'{locale}'" for locale in rtl_locales)}] as const\n")
         file.write('\n')
 
 def convert_all_files(input_directory):
@@ -148,7 +151,8 @@ def convert_all_files(input_directory):
     # Convert the non-translatable strings to the desired format
     print(f"\033[2K{Fore.WHITE}⏳ Generating static strings file...{Style.RESET_ALL}", end='\r')
     non_translatable_strings_file = os.path.join(input_directory, "_non_translatable_strings.json")
-    convert_non_translatable_strings_to_type_script(non_translatable_strings_file, NON_TRANSLATABLE_STRINGS_OUTPUT_PATH)
+    rtl_languages = [lang for lang in target_languages if lang["textDirection"] == "rtl"]
+    convert_non_translatable_strings_to_type_script(non_translatable_strings_file, NON_TRANSLATABLE_STRINGS_OUTPUT_PATH, rtl_languages)
     print(f"\033[2K{Fore.GREEN}✅ Static string generation complete{Style.RESET_ALL}")
 
     # Convert the XLIFF data to the desired format
