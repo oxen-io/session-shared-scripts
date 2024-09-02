@@ -118,7 +118,7 @@ def convert_non_translatable_strings_to_type_script(input_file, output_path, rtl
     # Output the file in the desired format
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
-    joined_rtl_locales = {", ".join(f"'{locale}'" for locale in rtl_locales)}
+    joined_rtl_locales = ", ".join(f"'{locale}'" for locale in rtl_locales)
 
     with open(output_path, 'w', encoding='utf-8') as file:
         file.write('export enum LOCALE_DEFAULTS {\n')
