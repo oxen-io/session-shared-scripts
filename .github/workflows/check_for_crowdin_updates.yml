@@ -111,3 +111,33 @@ jobs:
           branch: feature/update-translations
           commit-message: "[Automated] Update translations from Crowdin"
           delete-branch: true
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-android-artifact
+          path: |
+            android/app/src/main/res/values*/strings.xml
+            android/session-android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt
+          overwrite: true
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload Desktop artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-desktop-artifact
+          path: |
+            desktop/_locales/
+            desktop/ts/localization/constants.ts
+          overwrite: true
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload iOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-ios-artifact
+          path: |
+            ios/Session/Meta/Localizable.xcstrings
+            ios/SessionUtilitiesKit/General/Constants.swift
+          overwrite: true
+          if-no-files-found: warn
+          retention-days: 7
