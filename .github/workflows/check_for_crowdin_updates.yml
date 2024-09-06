@@ -80,7 +80,7 @@ jobs:
             This PR includes the latest translations from Crowdin
 
             Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
-          branch: feature/update-translations
+          branch: feature/update-crowdin-translations
           commit-message: "[Automated] Update translations from Crowdin"
           delete-branch: true
       - name: Create Desktop Pull Request
@@ -94,7 +94,7 @@ jobs:
             This PR includes the latest translations from Crowdin
 
             Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
-          branch: feature/update-translations
+          branch: feature/update-crowdin-translations
           commit-message: "[Automated] Update translations from Crowdin"
           delete-branch: true
       - name: Create iOS Pull Request
@@ -108,7 +108,7 @@ jobs:
             This PR includes the latest translations from Crowdin
 
             Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
-          branch: feature/update-translations
+          branch: feature/update-crowdin-translations
           commit-message: "[Automated] Update translations from Crowdin"
           delete-branch: true
       - name: Upload Android artifacts
