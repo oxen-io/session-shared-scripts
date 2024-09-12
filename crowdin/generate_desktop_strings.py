@@ -159,7 +159,7 @@ def convert_all_files(input_directory):
 
     # Convert the XLIFF data to the desired format
     print(f"\033[2K{Fore.WHITE}⏳ Converting translations to target format...{Style.RESET_ALL}", end='\r')
-    for language in target_languages:
+    for language in [source_language] + target_languages:
         lang_locale = language['locale']
         lang_two_letter_code = language['twoLettersCode']
         print(f"\033[2K{Fore.WHITE}⏳ Converting translations for {lang_locale} to target format...{Style.RESET_ALL}", end='\r')

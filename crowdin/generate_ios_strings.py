@@ -75,35 +75,15 @@ def convert_placeholders_for_plurals(resname, translations):
 
     return converted_translations
 
-def convert_xliff_to_string_catalog(input_file, output_dir, locale, locale_two_letter_code):
-    if not os.path.exists(input_file):
-        raise FileNotFoundError(f"Could not find '{input_file}' in raw translations directory")
 
-    # Parse the XLIFF and convert to XML
-    translations = parse_xliff(input_file)
-    sorted_translations = sorted(translations.items())
-    converted_translations = {}
-
-    for resname, target in sorted_translations:
-        converted_translations[resname] = generate_icu_pattern(target)
-
-    # Generate output files
-    output_locale = LOCALE_PATH_MAPPING.get(locale, LOCALE_PATH_MAPPING.get(locale_two_letter_code, locale_two_letter_code))
-    locale_output_dir = os.path.join(output_dir, output_locale)
-    output_file = os.path.join(locale_output_dir, 'messages.json')
-    os.makedirs(locale_output_dir, exist_ok=True)
-
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(converted_translations, f, ensure_ascii=False, indent=2)
-
-def convert_xliff_to_string_catalog(input_dir, output_dir, target_languages):
+def convert_xliff_to_string_catalog(input_dir, output_dir, source_language, target_languages):
     string_catalog = {
         "sourceLanguage": "en",
         "strings": {},
         "version": "1.0"
     }
 
-    for language in target_languages:
+    for language in [source_language] + target_languages:
         lang_locale = language['locale']
         input_file = os.path.join(input_dir, f"{lang_locale}.xliff")
 
@@ -237,7 +217,7 @@ def convert_all_files(input_directory):
 
     # Convert the XLIFF data to the desired format
     print(f"\033[2K{Fore.WHITE}⏳ Converting translations to target format...{Style.RESET_ALL}", end='\r')
-    convert_xliff_to_string_catalog(input_directory, TRANSLATIONS_OUTPUT_DIRECTORY, target_languages)
+    convert_xliff_to_string_catalog(input_directory, TRANSLATIONS_OUTPUT_DIRECTORY, source_language, target_languages)
     print(f"\033[2K{Fore.GREEN}✅ All conversions complete{Style.RESET_ALL}")
 
 if __name__ == "__main__":
