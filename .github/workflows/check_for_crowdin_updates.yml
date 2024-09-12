@@ -59,6 +59,7 @@ jobs:
             "${{ github.workspace }}/android/session-android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt"
       - name: Prepare Desktop Strings
         run: |
+          rm -rf ${{ github.workspace }}/desktop/_locales/*
           python "${{ github.workspace }}/scripts/crowdin/generate_desktop_strings.py" \
             "${{ github.workspace }}/raw_translations" \
             "${{ github.workspace }}/desktop/_locales" \
@@ -116,8 +117,8 @@ jobs:
         with:
           name: session-android-artifact
           path: |
-            android/app/src/main/res/values*/strings.xml
-            android/session-android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt
+            ${{ github.workspace }}/android/app/src/main/res/values*/strings.xml
+            ${{ github.workspace }}/android/session-android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt
           overwrite: true
           if-no-files-found: warn
           retention-days: 7
@@ -126,8 +127,8 @@ jobs:
         with:
           name: session-desktop-artifact
           path: |
-            desktop/_locales/
-            desktop/ts/localization/constants.ts
+            ${{ github.workspace }}/desktop/_locales
+            ${{ github.workspace }}/desktop/ts/localization/constants.ts
           overwrite: true
           if-no-files-found: warn
           retention-days: 7
@@ -136,8 +137,8 @@ jobs:
         with:
           name: session-ios-artifact
           path: |
-            ios/Session/Meta/Localizable.xcstrings
-            ios/SessionUtilitiesKit/General/Constants.swift
+            ${{ github.workspace }}/ios/Session/Meta/Localizable.xcstrings
+            ${{ github.workspace }}/ios/SessionUtilitiesKit/General/Constants.swift
           overwrite: true
           if-no-files-found: warn
           retention-days: 7
