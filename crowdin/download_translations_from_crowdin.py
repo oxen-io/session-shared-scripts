@@ -13,9 +13,9 @@ init(autoreset=True)
 parser = argparse.ArgumentParser(description='Download translations from Crowdin.')
 parser.add_argument('api_token', help='Crowdin API token')
 parser.add_argument('project_id', help='Crowdin project ID')
-parser.add_argument('glossary_id', help='Crowdin glossary ID')
-parser.add_argument('concept_id', help='Crowdin non-translatable terms concept ID')
 parser.add_argument('download_directory', help='Directory to save the initial downloaded files')
+parser.add_argument('--glossary_id', help='Crowdin glossary ID (optional)', default=None)
+parser.add_argument('--concept_id', help='Crowdin non-translatable terms concept ID (optional)', default=None)
 parser.add_argument('--skip-untranslated-strings', action='store_true', help='Exclude strings which have not been translated from the translation files')
 parser.add_argument('--force-allow-unapproved', action='store_true', help='Include unapproved translations in the translation files')
 parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
@@ -57,9 +57,10 @@ def main():
     check_error(project_response)
     project_details = project_response.json()['data']
     source_language_id = project_details['sourceLanguageId']
+    source_language = project_details['sourceLanguage']
     target_languages = project_details['targetLanguages']
     num_languages = len(target_languages)
-    print(f"\033[2K{Fore.GREEN}✅ Project details retrieved, found {num_languages} languages{Style.RESET_ALL}")
+    print(f"\033[2K{Fore.GREEN}✅ Project details retrieved, found {num_languages} translations{Style.RESET_ALL}")
 
     if VERBOSE:
         print(f"{Fore.BLUE}Response: {json.dumps(project_response.json(), indent=2)}{Style.RESET_ALL}")
@@ -71,6 +72,38 @@ def main():
     project_info_file = os.path.join(DOWNLOAD_DIRECTORY, f"_project_info.json")
     with open(project_info_file, 'w', encoding='utf-8') as file:
         json.dump(project_response.json(), file, indent=2)
+
+    # Retrieve the source language
+    print(f"\033[2K{Fore.WHITE}⏳ Exporting source language {source_language_id}...{Style.RESET_ALL}", end='\r')
+    source_lang_locale = source_language['locale']
+    source_export_payload = {
+        "targetLanguageId": source_language_id,
+        "format": "xliff",
+        "skipUntranslatedStrings": False,
+        "exportApprovedOnly": False
+    }
+    source_export_response = requests.post(f"{CROWDIN_API_BASE_URL}/projects/{CROWDIN_PROJECT_ID}/translations/exports",
+                                    headers={"Authorization": f"Bearer {CROWDIN_API_TOKEN}", "Content-Type": "application/json"},
+                                    data=json.dumps(source_export_payload))
+    check_error(source_export_response)
+
+    if VERBOSE:
+        print(f"\n{Fore.BLUE}Response: {json.dumps(source_export_response.json(), indent=2)}{Style.RESET_ALL}")
+
+    # Download the exported file
+    source_download_url = source_export_response.json()['data']['url']
+    source_download_path = os.path.join(DOWNLOAD_DIRECTORY, f"{source_lang_locale}.xliff")
+    print(f"\033[2K{Fore.WHITE}⏳ Downloading translations for {source_lang_locale}...{Style.RESET_ALL}", end='\r')
+    try:
+        download_file(source_download_url, source_download_path)
+    except requests.exceptions.HTTPError as e:
+        print(f"\033[2K{Fore.RED}❌ {prefix} Failed to download translations for {source_lang_locale} (Error: {e}){Style.RESET_ALL}")
+        if VERBOSE:
+            print(f"{Fore.BLUE}Response: {e.response.text}{Style.RESET_ALL}")
+        sys.exit(1)
+
+    # Completed downloading
+    print(f"\033[2K{Fore.GREEN}✅ Downloading source language complete{Style.RESET_ALL}")
 
     # Sort languages alphabetically by locale
     target_languages.sort(key=lambda x: x['locale'])
@@ -86,7 +119,7 @@ def main():
         export_payload = {
             "targetLanguageId": lang_id,
             "format": "xliff",
-            "skipUntranslatedStrings": (True if SKIP_UNTRANSLATED_STRINGS and lang_id != source_language_id else False),
+            "skipUntranslatedStrings": (True if SKIP_UNTRANSLATED_STRINGS else False),
             "exportApprovedOnly": (False if FORCE_ALLOW_UNAPPROVED else True)
         }
         export_response = requests.post(f"{CROWDIN_API_BASE_URL}/projects/{CROWDIN_PROJECT_ID}/translations/exports",
@@ -112,20 +145,21 @@ def main():
     # Completed downloading
     print(f"\033[2K{Fore.GREEN}✅ Downloading {num_languages} translations complete{Style.RESET_ALL}")
 
-    # Download non-translatable terms
-    print(f"{Fore.WHITE}⏳ Retrieving non-translatable strings...{Style.RESET_ALL}", end='\r')
-    static_string_response = requests.get(f"{CROWDIN_API_BASE_URL}/glossaries/{CROWDIN_GLOSSARY_ID}/terms?conceptId={CROWDIN_CONCEPT_ID}&limit=500", 
-                                      headers={"Authorization": f"Bearer {CROWDIN_API_TOKEN}"})
-    check_error(static_string_response)
+    # Download non-translatable terms (if requested)
+    if CROWDIN_GLOSSARY_ID is not None and CROWDIN_CONCEPT_ID is not None:
+        print(f"{Fore.WHITE}⏳ Retrieving non-translatable strings...{Style.RESET_ALL}", end='\r')
+        static_string_response = requests.get(f"{CROWDIN_API_BASE_URL}/glossaries/{CROWDIN_GLOSSARY_ID}/terms?conceptId={CROWDIN_CONCEPT_ID}&limit=500", 
+                                          headers={"Authorization": f"Bearer {CROWDIN_API_TOKEN}"})
+        check_error(static_string_response)
 
-    if VERBOSE:
-        print(f"{Fore.BLUE}Response: {json.dumps(static_string_response.json(), indent=2)}{Style.RESET_ALL}")
+        if VERBOSE:
+            print(f"{Fore.BLUE}Response: {json.dumps(static_string_response.json(), indent=2)}{Style.RESET_ALL}")
 
-    non_translatable_strings_file = os.path.join(DOWNLOAD_DIRECTORY, f"_non_translatable_strings.json")
-    with open(non_translatable_strings_file, 'w', encoding='utf-8') as file:
-        json.dump(static_string_response.json(), file, indent=2)
+        non_translatable_strings_file = os.path.join(DOWNLOAD_DIRECTORY, f"_non_translatable_strings.json")
+        with open(non_translatable_strings_file, 'w', encoding='utf-8') as file:
+            json.dump(static_string_response.json(), file, indent=2)
 
-    print(f"\033[2K{Fore.GREEN}✅ Downloading non-translatable complete{Style.RESET_ALL}")
+        print(f"\033[2K{Fore.GREEN}✅ Downloading non-translatable complete{Style.RESET_ALL}")
 
 if __name__ == "__main__":
     try:

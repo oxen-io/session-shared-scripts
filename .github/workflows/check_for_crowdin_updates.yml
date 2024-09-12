@@ -47,9 +47,9 @@ jobs:
           python "${{ github.workspace }}/scripts/crowdin/download_translations_from_crowdin.py" \
             "$CROWDIN_API_TOKEN" \
             618696 \
-            407522 \
-            36 \
             "${{ github.workspace }}/raw_translations" \
+            --glossary_id 407522 \
+            --concept_id 36 \
             --skip-untranslated-strings
       - name: Prepare Android Strings
         run: |
