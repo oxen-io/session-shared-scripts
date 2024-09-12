@@ -25,7 +25,7 @@ jobs:
         with:
           repository: 'oxen-io/session-desktop'
           path: 'desktop'
-          ref: 'unstable'
+          ref: 'standardised_strings_qa_2'
       - name: Checkout iOS
         uses: actions/checkout@v4
         with:
@@ -64,12 +64,62 @@ jobs:
             "${{ github.workspace }}/raw_translations" \
             "${{ github.workspace }}/desktop/_locales" \
             "${{ github.workspace }}/desktop/ts/localization/constants.ts"
+      - name: Prepare QA strings
+        run: |
+          cd ${{ github.workspace }}/desktop/
+          python ./tools/localization/generateLocales.py --generate-types --print-problems --print-problem-strings
+          cd -
       - name: Prepare iOS Strings
         run: |
           python "${{ github.workspace }}/scripts/crowdin/generate_ios_strings.py" \
             "${{ github.workspace }}/raw_translations" \
             "${{ github.workspace }}/ios/Session/Meta" \
             "${{ github.workspace }}/ios/SessionUtilitiesKit/General/Constants.swift"
+
+      - name: Upload Android artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-android-artefact
+          path: |
+            ${{ github.workspace }}/android/app/src/main/res/values*/strings.xml
+            ${{ github.workspace }}/android/session-android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt
+          overwrite: true
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload Desktop artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-desktop-artifact
+          path: |
+            ${{ github.workspace }}/desktop/_locales
+            ${{ github.workspace }}/desktop/ts/localization/constants.ts
+          overwrite: true
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload iOS artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-ios-artifact
+          path: |
+            ${{ github.workspace }}/ios/Session/Meta/Localizable.xcstrings
+            ${{ github.workspace }}/ios/SessionUtilitiesKit/General/Constants.swift
+          overwrite: true
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload QA artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-qa-artifact
+          path: |
+            ${{ github.workspace }}/desktop/ts/localization/locales.ts
+            ${{ github.workspace }}/desktop/ts/localization/constants.ts
+          overwrite: true
+          if-no-files-found: warn
+          retention-days: 7
+
+      # Not sure why yet, but uploading artefacts after creating the pull requests
+      # seems to only include a part of what should be in.
+      # As a dirty fix we upload the artefacts first, and then make the pull request
       - name: Create Android Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
@@ -112,33 +162,3 @@ jobs:
           branch: feature/update-crowdin-translations
           commit-message: "[Automated] Update translations from Crowdin"
           delete-branch: true
-      - name: Upload Android artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: session-android-artifact
-          path: |
-            ${{ github.workspace }}/android/app/src/main/res/values*/strings.xml
-            ${{ github.workspace }}/android/session-android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt
-          overwrite: true
-          if-no-files-found: warn
-          retention-days: 7
-      - name: Upload Desktop artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: session-desktop-artifact
-          path: |
-            ${{ github.workspace }}/desktop/_locales
-            ${{ github.workspace }}/desktop/ts/localization/constants.ts
-          overwrite: true
-          if-no-files-found: warn
-          retention-days: 7
-      - name: Upload iOS artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: session-ios-artifact
-          path: |
-            ${{ github.workspace }}/ios/Session/Meta/Localizable.xcstrings
-            ${{ github.workspace }}/ios/SessionUtilitiesKit/General/Constants.swift
-          overwrite: true
-          if-no-files-found: warn
-          retention-days: 7
