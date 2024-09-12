@@ -129,7 +129,7 @@ def convert_non_translatable_strings_to_type_script(input_file, output_path, rtl
 
         file.write('}\n')
         file.write('\n')
-        file.write(f"export const rtlLocales = [{joined_rtl_locales}] as const;\n")
+        file.write(f"export const rtlLocales = [{joined_rtl_locales}];\n")
         file.write('\n')
 
 def convert_all_files(input_directory):
