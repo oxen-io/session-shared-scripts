@@ -75,6 +75,7 @@ def escape_android_string(text):
     text = text.replace("&lt;/b&gt;", "</b>")
     text = text.replace("&lt;/br&gt;", "\\n")
     text = text.replace("<br/>", "\\n")
+    text = text.replace(" & ", " &amp; ")
     return text
 
 def generate_android_xml(translations, app_name):
