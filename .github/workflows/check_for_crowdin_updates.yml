@@ -67,7 +67,7 @@ jobs:
       - name: Prepare QA strings
         run: |
           cd ${{ github.workspace }}/desktop/
-          python ./tools/localization/generateLocales.py --generate-types --print-problems --print-problem-strings
+          python ./tools/localization/generateLocales.py --generate-types --print-problems --print-problem-strings --print-problem-formatting-tag-strings --error-on-problems
           cd -
       - name: Prepare iOS Strings
         run: |
