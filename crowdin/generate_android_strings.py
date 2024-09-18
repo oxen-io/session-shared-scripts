@@ -75,7 +75,9 @@ def clean_string(text):
     text = text.replace("&lt;/b&gt;", "</b>")
     text = text.replace("&lt;/br&gt;", "\\n")
     text = text.replace("-&gt;", "→")   # Use the special unicode for arrows
+    text = text.replace("->", "→")      # Use the special unicode for arrows
     text = text.replace("&lt;-", "←")   # Use the special unicode for arrows
+    text = text.replace("<-", "←")      # Use the special unicode for arrows
     text = text.replace("<br/>", "\\n")
     text = text.replace("&", "&amp;")   # Assume any remaining ampersands are desired
     return text.strip()                 # Strip whitespace

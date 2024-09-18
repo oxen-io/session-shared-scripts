@@ -69,7 +69,9 @@ def parse_xliff(file_path):
 
 def clean_string(text):
     text = text.replace("-&gt;", "→")   # Use the special unicode for arrows
+    text = text.replace("->", "→")      # Use the special unicode for arrows
     text = text.replace("&lt;-", "←")   # Use the special unicode for arrows
+    text = text.replace("<-", "←")      # Use the special unicode for arrows
     text = html.unescape(text)          # Unescape any HTML escaping
     return text.strip()                 # Strip whitespace
 
