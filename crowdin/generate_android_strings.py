@@ -65,7 +65,7 @@ def convert_placeholders(text):
 
     return re.sub(r'\{([^}]+)\}', repl, text)
 
-def escape_android_string(text):
+def update_string_escaping(text):
     # We can use standard XML escaped characters for most things (since XLIFF is an XML format) but
     # want the following cases escaped in a particulat way
     text = text.replace("'", r"\'")
@@ -74,8 +74,10 @@ def escape_android_string(text):
     text = text.replace("&lt;b&gt;", "<b>")
     text = text.replace("&lt;/b&gt;", "</b>")
     text = text.replace("&lt;/br&gt;", "\\n")
+    text = text.replace("-&gt;", "→")   # Use the special unicode for arrows
+    text = text.replace("&lt;-", "←")   # Use the special unicode for arrows
     text = text.replace("<br/>", "\\n")
-    text = text.replace(" & ", " &amp; ")
+    text = text.replace("&", "&amp;")   # Assume any remaining ampersands are desired
     return text
 
 def generate_android_xml(translations, app_name):
@@ -90,11 +92,11 @@ def generate_android_xml(translations, app_name):
         if isinstance(target, dict):  # It's a plural group
             result += f'    <plurals name="{resname}">\n'
             for form, value in target.items():
-                escaped_value = escape_android_string(convert_placeholders(value))
+                escaped_value = update_string_escaping(convert_placeholders(value))
                 result += f'        <item quantity="{form}">{escaped_value}</item>\n'
             result += '    </plurals>\n'
         else:  # It's a regular string (for these we DON'T want to convert the placeholders)
-            escaped_target = escape_android_string(target)
+            escaped_target = update_string_escaping(target)
             result += f'    <string name="{resname}">{escaped_target}</string>\n'
 
     result += '</resources>'

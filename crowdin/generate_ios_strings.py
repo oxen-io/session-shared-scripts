@@ -67,14 +67,18 @@ def parse_xliff(file_path):
 
     return translations, target_language
 
+def update_string_escaping(text):
+    text = text.replace("-&gt;", "→")   # Use the special unicode for arrows
+    text = text.replace("&lt;-", "←")   # Use the special unicode for arrows
+    return html.unescape(text)
+
 def convert_placeholders_for_plurals(resname, translations):
     # Replace {count} with %lld for iOS
     converted_translations = {}
     for form, value in translations.items():
-        converted_translations[form] = html.unescape(value.replace('{count}', '%lld'))
+        converted_translations[form] = update_string_escaping(value.replace('{count}', '%lld'))
 
     return converted_translations
-
 
 def convert_xliff_to_string_catalog(input_dir, output_dir, source_language, target_languages):
     string_catalog = {
@@ -152,7 +156,7 @@ def convert_xliff_to_string_catalog(input_dir, output_dir, source_language, targ
                 string_catalog["strings"][resname]["localizations"][target_language] = {
                     "stringUnit": {
                         "state": "translated",
-                        "value": html.unescape(translation)  # Just unescape, don't convert placeholders
+                        "value": update_string_escaping(translation)
                     }
                 }
 

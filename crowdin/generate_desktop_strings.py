@@ -67,18 +67,23 @@ def parse_xliff(file_path):
     
     return translations
 
+def update_string_escaping(text):
+    text = text.replace("-&gt;", "→")   # Use the special unicode for arrows
+    text = text.replace("&lt;-", "←")   # Use the special unicode for arrows
+    return html.unescape(text)
+
 def generate_icu_pattern(target):
     if isinstance(target, dict):  # It's a plural group
         pattern_parts = []
         for form, value in target.items():
             if form in ['zero', 'one', 'two', 'few', 'many', 'other', 'exact', 'fractional']:
                 # Replace {count} with #
-                value = html.unescape(value.replace('{count}', '#'))
+                value = update_string_escaping(value.replace('{count}', '#'))
                 pattern_parts.append(f"{form} [{value}]")
         
         return "{{count, plural, {0}}}".format(" ".join(pattern_parts))
     else:  # It's a regular string
-        return html.unescape(target)
+        return update_string_escaping(target)
 
 def convert_xliff_to_json(input_file, output_dir, locale, locale_two_letter_code):
     if not os.path.exists(input_file):
