@@ -67,7 +67,7 @@ def convert_placeholders(text):
 
 def clean_string(text):
     # We can use standard XML escaped characters for most things (since XLIFF is an XML format) but
-    # want the following cases escaped in a particulat way
+    # want the following cases escaped in a particular way
     text = text.replace("'", r"\'")
     text = text.replace("&quot;", "\"")
     text = text.replace("\"", "\\\"")

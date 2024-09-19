@@ -19,7 +19,8 @@ jobs:
         with:
           repository: 'oxen-io/session-android'
           path: 'android'
-          ref: 'dev'
+          submodules: recursive
+          ref: 'release/1.20.0'
       - name: Checkout Desktop
         uses: actions/checkout@v4
         with:
@@ -37,6 +38,16 @@ jobs:
         with:
           python-version: 3.8
           cache: 'pip' # caching pip dependencies
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Install Dependencies
         run: |
           pip install -r ${{ github.workspace }}/scripts/crowdin/requirements.txt
@@ -51,12 +62,29 @@ jobs:
             --glossary_id 407522 \
             --concept_id 36 \
             --skip-untranslated-strings
+
+      - name: Upload xliff artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-xliff-artefact
+          path: "{{ github.workspace }}/raw_translations/*"
+          overwrite: true
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Prepare Android Strings
         run: |
           python "${{ github.workspace }}/scripts/crowdin/generate_android_strings.py" \
             "${{ github.workspace }}/raw_translations" \
-            "${{ github.workspace }}/android/app/src/main/res" \
-            "${{ github.workspace }}/android/session-android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt"
+            "${{ github.workspace }}/android/libsession/src/main/res" \
+            "${{ github.workspace }}/android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt"
+
+
+
+      - name: Print Android Strings
+        run: |
+              ls -l "${{ github.workspace }}/android/libsession/src/main/res/"
+
       - name: Prepare Desktop Strings
         run: |
           rm -rf ${{ github.workspace }}/desktop/_locales/*
@@ -76,8 +104,8 @@ jobs:
         with:
           name: session-android-artefact
           path: |
-            ${{ github.workspace }}/android/app/src/main/res/values*/strings.xml
-            ${{ github.workspace }}/android/session-android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt
+            ${{ github.workspace }}/android/libsession/src/main/res/values*/strings.xml
+            ${{ github.workspace }}/android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt
           overwrite: true
           if-no-files-found: warn
           retention-days: 7
@@ -101,6 +129,10 @@ jobs:
           overwrite: true
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Validate strings for Android
+        run: ${{ github.workspace }}/android/gradlew :libsession:packageDebugResources
+
       # It's easier to find what went wrong with some strings if we can get the files from the artefact upload step above.
       # The job will still be marked as failed and no Pull Requests will be made.
       - name: Prepare QA strings
@@ -118,6 +150,8 @@ jobs:
           overwrite: true
           if-no-files-found: warn
           retention-days: 7
+
+
 
 
 

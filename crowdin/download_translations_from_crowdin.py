@@ -3,6 +3,7 @@ import requests
 import json
 import time
 import sys
+import re
 import argparse
 from colorama import Fore, Style, init
 
@@ -48,11 +49,31 @@ def download_file(url, output_path):
         for chunk in response.iter_content(chunk_size=8192):
             f.write(chunk)
 
+    sanitize_downloaded_file(output_path)
+
+
+# Sanitize crowdin translations and common user mistakes
+def sanitize_downloaded_file(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        xml_content = file.read()
+
+    correct = '&lt;br/&gt;'
+    # the only correct br tag is <br‍/>.
+    # This replaces <.{0,2}br.{0,2}>
+    # as we sometimes have a \ or a / or both misplaces
+    updated_content = re.sub("&lt;.{0,2}br.{0,2}&gt;",correct,xml_content)
+
+
+    # Write the updated content back to the file
+    with open(file_path, 'w', encoding='utf-8') as file:
+        file.write(updated_content)
+
+
 # Main function to handle the logic
 def main():
     # Retrieve the list of languages
     print(f"{Fore.WHITE}⏳ Retrieving project details...{Style.RESET_ALL}", end='\r')
-    project_response = requests.get(f"{CROWDIN_API_BASE_URL}/projects/{CROWDIN_PROJECT_ID}", 
+    project_response = requests.get(f"{CROWDIN_API_BASE_URL}/projects/{CROWDIN_PROJECT_ID}",
                                       headers={"Authorization": f"Bearer {CROWDIN_API_TOKEN}"})
     check_error(project_response)
     project_details = project_response.json()['data']
@@ -113,7 +134,7 @@ def main():
         lang_id = language['id']
         lang_locale = language['locale']
         prefix = f"({index:02d}/{num_languages:02d})"
-        
+
         # Request export of translations for the specific language
         print(f"\033[2K{Fore.WHITE}⏳ {prefix} Exporting translations for {lang_locale}...{Style.RESET_ALL}", end='\r')
         export_payload = {
@@ -148,7 +169,7 @@ def main():
     # Download non-translatable terms (if requested)
     if CROWDIN_GLOSSARY_ID is not None and CROWDIN_CONCEPT_ID is not None:
         print(f"{Fore.WHITE}⏳ Retrieving non-translatable strings...{Style.RESET_ALL}", end='\r')
-        static_string_response = requests.get(f"{CROWDIN_API_BASE_URL}/glossaries/{CROWDIN_GLOSSARY_ID}/terms?conceptId={CROWDIN_CONCEPT_ID}&limit=500", 
+        static_string_response = requests.get(f"{CROWDIN_API_BASE_URL}/glossaries/{CROWDIN_GLOSSARY_ID}/terms?conceptId={CROWDIN_CONCEPT_ID}&limit=500",
                                           headers={"Authorization": f"Bearer {CROWDIN_API_TOKEN}"})
         check_error(static_string_response)
 
