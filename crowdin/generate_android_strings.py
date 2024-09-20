@@ -5,10 +5,26 @@ import sys
 import argparse
 import re
 from pathlib import Path
-from colorama import Fore, Style, init
+from colorama import Fore, Style
 
 # Variables that should be treated as numeric (using %d)
 NUMERIC_VARIABLES = ['count', 'found_count', 'total_count']
+
+# Customizable mapping for output folder hierarchy
+# Add entries here to customize the output path for specific locales
+# Format: 'input_locale': 'output_path'
+LOCALE_PATH_MAPPING = {
+    'es-419': 'b+es+419',
+    'kmr-TR': 'kmr',
+    'hy-AM': 'b+hy',
+    'pt-BR': 'b+pt+BR',
+    'pt-PT': 'b+pt+PT',
+    'zh-CN': 'b+zh+CN',
+    'zh-TW': 'b+zh+TW',
+    'sr-CS': 'b+sr+CS',
+    'sr-SP': 'b+sr+SP'
+    # Add more mappings as needed
+}
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description='Convert a XLIFF translation files to Android XML.')
@@ -26,7 +42,7 @@ def parse_xliff(file_path):
     root = tree.getroot()
     namespace = {'ns': 'urn:oasis:names:tc:xliff:document:1.2'}
     translations = {}
-    
+
     # Handle plural groups
     for group in root.findall('.//ns:group[@restype="x-gettext-plurals"]', namespaces=namespace):
         plural_forms = {}
@@ -42,7 +58,7 @@ def parse_xliff(file_path):
                 plural_forms[form] = target.text
         if resname and plural_forms:
             translations[resname] = plural_forms
-    
+
     # Handle non-plural translations
     for trans_unit in root.findall('.//ns:trans-unit', namespaces=namespace):
         resname = trans_unit.get('resname')
@@ -50,14 +66,14 @@ def parse_xliff(file_path):
             target = trans_unit.find('ns:target', namespaces=namespace)
             if target is not None and target.text:
                 translations[resname] = target.text
-    
+
     return translations
 
 def convert_placeholders(text):
     def repl(match):
         var_name = match.group(1)
         index = len(set(re.findall(r'\{([^}]+)\}', text[:match.start()]))) + 1
-        
+
         if var_name in NUMERIC_VARIABLES:
             return f"%{index}$d"
         else:
@@ -66,6 +82,8 @@ def convert_placeholders(text):
     return re.sub(r'\{([^}]+)\}', repl, text)
 
 def clean_string(text):
+    # Note: any changes done for all platforms needs most likely to be done on crowdin side.
+    # So we don't want to replace -&gt; with → for instance, we want the crowdin strings to not have those at all.
     # We can use standard XML escaped characters for most things (since XLIFF is an XML format) but
     # want the following cases escaped in a particular way
     text = text.replace("'", r"\'")
@@ -74,10 +92,6 @@ def clean_string(text):
     text = text.replace("&lt;b&gt;", "<b>")
     text = text.replace("&lt;/b&gt;", "</b>")
     text = text.replace("&lt;/br&gt;", "\\n")
-    text = text.replace("-&gt;", "→")   # Use the special unicode for arrows
-    text = text.replace("->", "→")      # Use the special unicode for arrows
-    text = text.replace("&lt;-", "←")   # Use the special unicode for arrows
-    text = text.replace("<-", "←")      # Use the special unicode for arrows
     text = text.replace("<br/>", "\\n")
     text = text.replace("&", "&amp;")   # Assume any remaining ampersands are desired
     return text.strip()                 # Strip whitespace
@@ -105,35 +119,30 @@ def generate_android_xml(translations, app_name):
 
     return result
 
-def convert_xliff_to_android_xml(input_file, output_dir, source_locale, locale, app_name):
+def convert_xliff_to_android_xml(input_file, output_dir, source_locale, locale, locale_two_letter_code, app_name):
     if not os.path.exists(input_file):
         raise FileNotFoundError(f"Could not find '{input_file}' in raw translations directory")
 
     # Parse the XLIFF and convert to XML (only include the 'app_name' entry in the source language)
-    is_source_language = (locale == source_locale)
+    is_source_language = locale == source_locale
     translations = parse_xliff(input_file)
     output_data = generate_android_xml(translations, app_name if is_source_language else None)
 
     # Generate output files
-    language_code = locale.split('-')[0]
-    region_code = locale.split('-')[1] if '-' in locale else None
+    output_locale = LOCALE_PATH_MAPPING.get(locale, LOCALE_PATH_MAPPING.get(locale_two_letter_code, locale_two_letter_code))
+
 
     if is_source_language:
         language_output_dir = os.path.join(output_dir, 'values')
     else:
-        language_output_dir = os.path.join(output_dir, f'values-{language_code}')
+        language_output_dir = os.path.join(output_dir, f'values-{output_locale}')
 
     os.makedirs(language_output_dir, exist_ok=True)
     language_output_file = os.path.join(language_output_dir, 'strings.xml')
     with open(language_output_file, 'w', encoding='utf-8') as file:
         file.write(output_data)
 
-    if region_code:
-        region_output_dir = os.path.join(output_dir, f'values-{language_code}-r{region_code}')
-        os.makedirs(region_output_dir, exist_ok=True)
-        region_output_file = os.path.join(region_output_dir, 'strings.xml')
-        with open(region_output_file, 'w', encoding='utf-8') as file:
-            file.write(output_data)
+
 
 def convert_non_translatable_strings_to_kotlin(input_file, output_path):
     if not os.path.exists(input_file):
@@ -141,7 +150,7 @@ def convert_non_translatable_strings_to_kotlin(input_file, output_path):
 
     # Process the non-translatable string input
     non_translatable_strings_data = {}
-    with open(input_file, 'r') as file:
+    with open(input_file, 'r', encoding="utf-8") as file:
         non_translatable_strings_data = json.load(file)
 
     entries = non_translatable_strings_data['data']
@@ -177,9 +186,9 @@ def convert_all_files(input_directory):
         raise FileNotFoundError(f"Could not find '{project_info_file}' in raw translations directory")
 
     project_details = {}
-    with open(project_info_file, 'r') as file:
+    with open(project_info_file, 'r', encoding="utf-8") as file:
         project_details = json.load(file)
-    
+
     # Extract the language info and sort the target languages alphabetically by locale
     source_language = project_details['data']['sourceLanguage']
     target_languages = project_details['data']['targetLanguages']
@@ -198,9 +207,10 @@ def convert_all_files(input_directory):
     source_locale = source_language['locale']
     for language in [source_language] + target_languages:
         lang_locale = language['locale']
+        lang_two_letter_code = language['twoLettersCode']
         print(f"\033[2K{Fore.WHITE}⏳ Converting translations for {lang_locale} to target format...{Style.RESET_ALL}", end='\r')
         input_file = os.path.join(input_directory, f"{lang_locale}.xliff")
-        convert_xliff_to_android_xml(input_file, TRANSLATIONS_OUTPUT_DIRECTORY, source_locale, lang_locale, app_name)
+        convert_xliff_to_android_xml(input_file, TRANSLATIONS_OUTPUT_DIRECTORY, source_locale, lang_locale, lang_two_letter_code, app_name)
     print(f"\033[2K{Fore.GREEN}✅ All conversions complete{Style.RESET_ALL}")
 
 if __name__ == "__main__":

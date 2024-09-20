@@ -24,7 +24,7 @@ def parse_xliff(file_path):
     root = tree.getroot()
     namespace = {'ns': 'urn:oasis:names:tc:xliff:document:1.2'}
     translations = {}
-    
+
     file_elem = root.find('ns:file', namespaces=namespace)
     if file_elem is None:
         raise ValueError(f"Invalid XLIFF structure in file: {file_path}")
@@ -32,15 +32,15 @@ def parse_xliff(file_path):
     target_language = file_elem.get('target-language')
     if target_language is None:
         raise ValueError(f"Missing target-language in file: {file_path}")
-    
+
     for trans_unit in root.findall('.//ns:trans-unit', namespaces=namespace):
         resname = trans_unit.get('resname') or trans_unit.get('id')
         if resname is None:
             continue  # Skip entries without a resname or id
-        
+
         target = trans_unit.find('ns:target', namespaces=namespace)
         source = trans_unit.find('ns:source', namespaces=namespace)
-        
+
         if target is not None and target.text:
             translations[resname] = target.text
         elif source is not None and source.text:
@@ -68,10 +68,8 @@ def parse_xliff(file_path):
     return translations, target_language
 
 def clean_string(text):
-    text = text.replace("-&gt;", "→")   # Use the special unicode for arrows
-    text = text.replace("->", "→")      # Use the special unicode for arrows
-    text = text.replace("&lt;-", "←")   # Use the special unicode for arrows
-    text = text.replace("<-", "←")      # Use the special unicode for arrows
+    # Note: any changes done for all platforms needs most likely to be done on crowdin side.
+    # So we don't want to replace -&gt; with → for instance, we want the crowdin strings to not have those at all.
     text = html.unescape(text)          # Unescape any HTML escaping
     return text.strip()                 # Strip whitespace
 
@@ -114,7 +112,7 @@ def convert_xliff_to_string_catalog(input_dir, output_dir, source_language, targ
 
             if isinstance(translation, dict):  # It's a plural group
                 converted_translations = convert_placeholders_for_plurals(resname, translation)
-                
+
                 # Check if any of the translations contain '{count}'
                 contains_count = any('{count}' in value for value in translation.values())
 
@@ -175,7 +173,7 @@ def convert_non_translatable_strings_to_swift(input_file, output_path):
 
     # Process the non-translatable string input
     non_translatable_strings_data = {}
-    with open(input_file, 'r') as file:
+    with open(input_file, 'r', encoding="utf-8") as file:
         non_translatable_strings_data = json.load(file)
 
     entries = non_translatable_strings_data['data']
@@ -206,9 +204,9 @@ def convert_all_files(input_directory):
         raise FileNotFoundError(f"Could not find '{project_info_file}' in raw translations directory")
 
     project_details = {}
-    with open(project_info_file, 'r') as file:
+    with open(project_info_file, 'r', encoding="utf-8") as file:
         project_details = json.load(file)
-    
+
     # Extract the language info and sort the target languages alphabetically by locale
     source_language = project_details['data']['sourceLanguage']
     target_languages = project_details['data']['targetLanguages']

@@ -1,0 +1,16 @@
+[MASTER]
+# Use multiple processes to speed up Pylint.
+jobs=0
+
+
+[FORMAT]
+max-line-length=180
+
+
+[MISCELLANEOUS]
+
+# List of note tags to take in consideration, separated by a comma.
+notes=FIXME,TODO
+
+[MESSAGES CONTROL]
+disable=broad-except,missing-function-docstring

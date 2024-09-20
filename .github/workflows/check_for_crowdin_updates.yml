@@ -1,12 +1,31 @@
 name: Check for Crowdin Updates
 
+# Not sure why yet, but uploading artefacts after creating the pull requests
+# seems to only include a part of what should be in.
+# As a dirty fix, we upload the artefacts first, and then make the pull request
+
 on:
   schedule:
     - cron: '0 0 * * 1'  # Every Monday at 12:00 AM UTC, which is 10:00 AM Melbourne time (AEST)
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PR_TITLE: "[Automated] Update translations from Crowdin"
+  PR_DESCRIPTION: |
+    [Automated]
+    This PR includes the latest translations from Crowdin
+
+    Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
+  PR_TARGET_BRANCH: feature/update-crowdin-translations
+
 jobs:
-  fetch_convert_and_diff_translations:
+
+  fetch_translations:
+    name: Download translations from crowdin
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo Content
@@ -14,41 +33,13 @@ jobs:
         with:
           path: 'scripts'
           # don't provide a branch (ref) so it uses the default for that event
-      - name: Checkout Android
-        uses: actions/checkout@v4
-        with:
-          repository: 'oxen-io/session-android'
-          path: 'android'
-          submodules: recursive
-          ref: 'release/1.20.0'
-      - name: Checkout Desktop
-        uses: actions/checkout@v4
-        with:
-          repository: 'oxen-io/session-desktop'
-          path: 'desktop'
-          ref: 'standardised_strings_qa_2'
-      - name: Checkout iOS
-        uses: actions/checkout@v4
-        with:
-          repository: 'oxen-io/session-ios'
-          path: 'ios'
-          ref: 'dev'
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.8
           cache: 'pip' # caching pip dependencies
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: 17
-          cache: gradle
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Install Dependencies
+        shell: bash
         run: |
           pip install -r ${{ github.workspace }}/scripts/crowdin/requirements.txt
       - name: Download Translations
@@ -62,67 +53,44 @@ jobs:
             --glossary_id 407522 \
             --concept_id 36 \
             --skip-untranslated-strings
-
-      - name: Upload xliff artefacts
+      - name: Upload download artefacts
         uses: actions/upload-artifact@v4
         with:
-          name: session-xliff-artefact
-          path: "{{ github.workspace }}/raw_translations/*"
+          name: session-download
+          path: |
+            ${{ github.workspace }}/raw_translations/*.xliff
+            ${{ github.workspace }}/raw_translations/_non_translatable_strings.json
+            ${{ github.workspace }}/raw_translations/_project_info.json
           overwrite: true
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Prepare Android Strings
-        run: |
-          python "${{ github.workspace }}/scripts/crowdin/generate_android_strings.py" \
-            "${{ github.workspace }}/raw_translations" \
-            "${{ github.workspace }}/android/libsession/src/main/res" \
-            "${{ github.workspace }}/android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt"
+  build_ios:
+    name: Build iOS strings
+    runs-on: ubuntu-latest
+    needs: [fetch_translations]
+    steps:
+      - name: Checkout Repo Content
+        uses: actions/checkout@v4
+        with:
+          path: 'scripts'
+          # don't provide a branch (ref) so it uses the default for that event
+      - name: Checkout iOS
+        uses: ./scripts/actions/checkout_ios
 
+      - name: Setup shared
+        uses: ./scripts/actions/setup_shared
 
-
-      - name: Print Android Strings
-        run: |
-              ls -l "${{ github.workspace }}/android/libsession/src/main/res/"
-
-      - name: Prepare Desktop Strings
-        run: |
-          rm -rf ${{ github.workspace }}/desktop/_locales/*
-          python "${{ github.workspace }}/scripts/crowdin/generate_desktop_strings.py" \
-            "${{ github.workspace }}/raw_translations" \
-            "${{ github.workspace }}/desktop/_locales" \
-            "${{ github.workspace }}/desktop/ts/localization/constants.ts"
       - name: Prepare iOS Strings
         run: |
           python "${{ github.workspace }}/scripts/crowdin/generate_ios_strings.py" \
             "${{ github.workspace }}/raw_translations" \
             "${{ github.workspace }}/ios/Session/Meta" \
             "${{ github.workspace }}/ios/SessionUtilitiesKit/General/Constants.swift"
-
-      - name: Upload Android artefacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: session-android-artefact
-          path: |
-            ${{ github.workspace }}/android/libsession/src/main/res/values*/strings.xml
-            ${{ github.workspace }}/android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt
-          overwrite: true
-          if-no-files-found: warn
-          retention-days: 7
-      - name: Upload Desktop artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: session-desktop-artifact
-          path: |
-            ${{ github.workspace }}/desktop/_locales
-            ${{ github.workspace }}/desktop/ts/localization/constants.ts
-          overwrite: true
-          if-no-files-found: warn
-          retention-days: 7
       - name: Upload iOS artefacts
         uses: actions/upload-artifact@v4
         with:
-          name: session-ios-artifact
+          name: session-ios
           path: |
             ${{ github.workspace }}/ios/Session/Meta/Localizable.xcstrings
             ${{ github.workspace }}/ios/SessionUtilitiesKit/General/Constants.swift
@@ -130,9 +98,41 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Validate strings for Android
-        run: ${{ github.workspace }}/android/gradlew :libsession:packageDebugResources
 
+
+  build_desktop:
+    name: Build Desktop strings
+    needs: [fetch_translations]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo Content
+        uses: actions/checkout@v4
+        with:
+          path: 'scripts'
+          # don't provide a branch (ref) so it uses the default for that event
+      - name: Setup shared
+        uses: ./scripts/actions/setup_shared
+
+      - name: Checkout Desktop
+        uses: ./scripts/actions/checkout_desktop
+
+
+      - name: Prepare Desktop Strings
+        run: |
+          python "${{ github.workspace }}/scripts/crowdin/generate_desktop_strings.py" \
+            "${{ github.workspace }}/raw_translations" \
+            "${{ github.workspace }}/desktop/_locales" \
+            "${{ github.workspace }}/desktop/ts/localization/constants.ts"
+      - name: Upload Desktop artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-desktop
+          path: |
+            ${{ github.workspace }}/desktop/_locales
+            ${{ github.workspace }}/desktop/ts/localization/constants.ts
+          overwrite: true
+          if-no-files-found: warn
+          retention-days: 7
       # It's easier to find what went wrong with some strings if we can get the files from the artefact upload step above.
       # The job will still be marked as failed and no Pull Requests will be made.
       - name: Prepare QA strings
@@ -143,7 +143,7 @@ jobs:
       - name: Upload QA artefacts
         uses: actions/upload-artifact@v4
         with:
-          name: session-qa-artifact
+          name: session-qa
           path: |
             ${{ github.workspace }}/desktop/ts/localization/locales.ts
             ${{ github.workspace }}/desktop/ts/localization/constants.ts
@@ -151,52 +151,154 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  build_android:
+    name: Build Android strings
+    runs-on: ubuntu-latest
+    needs: [fetch_translations]
+
+    steps:
+      - name: Checkout Repo Content
+        uses: actions/checkout@v4
+        with:
+          path: 'scripts'
+          # don't provide a branch (ref) so it uses the default for that event
+      - name: Checkout Android
+        uses: ./scripts/actions/checkout_android
+
+      - name: Setup shared
+        uses: ./scripts/actions/setup_shared
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare Android Strings
+        run: |
+          rm -rf ${{ github.workspace }}/android/libsession/src/main/res/values*/strings.xml
+          python "${{ github.workspace }}/scripts/crowdin/generate_android_strings.py" \
+            "${{ github.workspace }}/raw_translations" \
+            "${{ github.workspace }}/android/libsession/src/main/res" \
+            "${{ github.workspace }}/android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt"
+      - name: Upload Android artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-android
+          path: |
+            ${{ github.workspace }}/android/libsession/src/main/res/values*/strings.xml
+            ${{ github.workspace }}/android/libsession/src/main/java/org/session/libsession/utilities/NonTranslatableStringConstants.kt
+          overwrite: true
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Validate strings for Android
+        run: cd ${{ github.workspace }}/android && ${{ github.workspace }}/android/gradlew app:mergePlayDebugResources
 
 
+  jobs_sync:
+    name: Waiting for build jobs
 
+    needs: [build_android, build_ios, build_desktop]
+    runs-on: ubuntu-latest
 
-      # Not sure why yet, but uploading artefacts after creating the pull requests
-      # seems to only include a part of what should be in.
-      # As a dirty fix we upload the artefacts first, and then make the pull request
+    steps:
+      - name: Nothing to do
+        shell: bash
+        run: echo "Nothing to do here"
+
+  make_android_pr:
+    name: Make Android PR
+    needs: [jobs_sync]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo Content
+        uses: actions/checkout@v4
+        with:
+          path: 'scripts'
+          # don't provide a branch (ref) so it uses the default for that event
+      - name: Checkout Android
+        uses: ./scripts/actions/checkout_android
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: session-android
+          # this has to be the first shared parent on the upload artefact task for Android
+          path: "${{ github.workspace }}/android/libsession/src/main"
+
       - name: Create Android Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           path: 'android'
           token: ${{ secrets.CROWDIN_PR_TOKEN }}
-          title: "[Automated] Update translations from Crowdin"
-          body: |
-            [Automated]
-            This PR includes the latest translations from Crowdin
-
-            Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
-          branch: feature/update-crowdin-translations
-          commit-message: "[Automated] Update translations from Crowdin"
+          title: ${{ env.PR_TITLE }}
+          body: ${{ env.PR_DESCRIPTION }}
+          branch: ${{ env.PR_TARGET_BRANCH }}
+          commit-message: ${{ env.PR_TITLE }}
           delete-branch: true
+
+  make_desktop_pr:
+    needs: [jobs_sync]
+    name: Make Desktop PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo Content
+        uses: actions/checkout@v4
+        with:
+          path: 'scripts'
+          # don't provide a branch (ref) so it uses the default for that event
+      - name: Checkout Desktop
+        uses: ./scripts/actions/checkout_desktop
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: session-desktop
+          # this has to be the first shared parent on the upload artefact task for Desktop
+          path: "${{ github.workspace }}/desktop"
+
       - name: Create Desktop Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           path: 'desktop'
           token: ${{ secrets.CROWDIN_PR_TOKEN }}
-          title: "[Automated] Update translations from Crowdin"
-          body: |
-            [Automated]
-            This PR includes the latest translations from Crowdin
-
-            Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
-          branch: feature/update-crowdin-translations
-          commit-message: "[Automated] Update translations from Crowdin"
+          title: ${{ env.PR_TITLE }}
+          body: ${{ env.PR_DESCRIPTION }}
+          branch: ${{ env.PR_TARGET_BRANCH }}
+          commit-message: ${{ env.PR_TITLE }}
           delete-branch: true
+
+
+  make_ios_pr:
+    needs: [jobs_sync]
+    name: Make iOS PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo Content
+        uses: actions/checkout@v4
+        with:
+          path: 'scripts'
+          # don't provide a branch (ref) so it uses the default for that event
+      - name: Checkout iOS
+        uses: ./scripts/actions/checkout_ios
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: session-ios
+          # this has to be the first shared parent on the upload artefact task for iOS
+          path: "${{ github.workspace }}/ios"
+
       - name: Create iOS Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           path: 'ios'
           token: ${{ secrets.CROWDIN_PR_TOKEN }}
-          title: "[Automated] Update translations from Crowdin"
-          body: |
-            [Automated]
-            This PR includes the latest translations from Crowdin
-
-            Session uses the community-driven translation platform Crowdin for localization, anyone can contribute at https://getsession.org/translate
-          branch: feature/update-crowdin-translations
-          commit-message: "[Automated] Update translations from Crowdin"
+          title: ${{ env.PR_TITLE }}
+          body: ${{ env.PR_DESCRIPTION }}
+          branch: ${{ env.PR_TARGET_BRANCH }}
+          commit-message: ${{ env.PR_TITLE }}
           delete-branch: true
+
