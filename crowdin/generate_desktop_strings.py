@@ -15,12 +15,14 @@ LOCALE_PATH_MAPPING = {
     'kmr-TR': 'kmr',
     # Note: we don't want to replace - with _ anymore.
     # We still need those mappings, otherwise they fallback to their 2 letter codes
-    'es-419': 'es-419',
     'hy-AM': 'hy-AM',
+    'es-419': 'es-419',
     'pt-BR': 'pt-BR',
     'pt-PT': 'pt-PT',
     'zh-CN': 'zh-CN',
-    'zh-TW': 'zh-TW'
+    'zh-TW': 'zh-TW',
+    'sr-CS': 'sr-CS',
+    'sr-SP': 'sr-SP'
     # Add more mappings as needed
 }
 
@@ -40,7 +42,7 @@ def parse_xliff(file_path):
     root = tree.getroot()
     namespace = {'ns': 'urn:oasis:names:tc:xliff:document:1.2'}
     translations = {}
-    
+
     # Handle plural groups
     for group in root.findall('.//ns:group[@restype="x-gettext-plurals"]', namespaces=namespace):
         plural_forms = {}
@@ -56,7 +58,7 @@ def parse_xliff(file_path):
                 plural_forms[form] = target.text
         if resname and plural_forms:
             translations[resname] = plural_forms
-    
+
     # Handle non-plural translations
     for trans_unit in root.findall('.//ns:trans-unit', namespaces=namespace):
         resname = trans_unit.get('resname')
@@ -64,14 +66,12 @@ def parse_xliff(file_path):
             target = trans_unit.find('ns:target', namespaces=namespace)
             if target is not None and target.text:
                 translations[resname] = target.text
-    
+
     return translations
 
 def clean_string(text):
-    text = text.replace("-&gt;", "→")   # Use the special unicode for arrows
-    text = text.replace("->", "→")      # Use the special unicode for arrows
-    text = text.replace("&lt;-", "←")   # Use the special unicode for arrows
-    text = text.replace("<-", "←")      # Use the special unicode for arrows
+    # Note: any changes done for all platforms needs most likely to be done on crowdin side.
+    # So we don't want to replace -&gt; with → for instance, we want the crowdin strings to not have those at all.
     text = html.unescape(text)          # Unescape any HTML escaping
     return text.strip()                 # Strip whitespace
 
@@ -83,7 +83,7 @@ def generate_icu_pattern(target):
                 # Replace {count} with #
                 value = clean_string(value.replace('{count}', '#'))
                 pattern_parts.append(f"{form} [{value}]")
-        
+
         return "{{count, plural, {0}}}".format(" ".join(pattern_parts))
     else:  # It's a regular string
         return clean_string(target)
@@ -118,7 +118,7 @@ def convert_non_translatable_strings_to_type_script(input_file, output_path, exp
 
     # Process the non-translatable string input
     non_translatable_strings_data = {}
-    with open(input_file, 'r') as file:
+    with open(input_file, 'r', encoding="utf-8") as file:
         non_translatable_strings_data = json.load(file)
 
     entries = non_translatable_strings_data['data']
@@ -155,9 +155,9 @@ def convert_all_files(input_directory):
         raise FileNotFoundError(f"Could not find '{project_info_file}' in raw translations directory")
 
     project_details = {}
-    with open(project_info_file, 'r') as file:
+    with open(project_info_file, 'r', encoding="utf-8") as file:
         project_details = json.load(file)
-    
+
     # Extract the language info and sort the target languages alphabetically by locale
     source_language = project_details['data']['sourceLanguage']
     target_languages = project_details['data']['targetLanguages']

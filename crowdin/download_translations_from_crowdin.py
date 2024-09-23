@@ -1,9 +1,9 @@
 import os
-import requests
 import json
-import time
 import sys
 import argparse
+import requests
+
 from colorama import Fore, Style, init
 
 # Initialize colorama
@@ -31,29 +31,40 @@ SKIP_UNTRANSLATED_STRINGS = args.skip_untranslated_strings
 FORCE_ALLOW_UNAPPROVED = args.force_allow_unapproved
 VERBOSE = args.verbose
 
-# Function to check for errors in API responses
+REQUEST_TIMEOUT_S = 5
+
 def check_error(response):
+    """
+    Function to check for errors in API responses
+    """
     if response.status_code != 200:
         print(f"\033[2K{Fore.RED}❌ Error: {response.json().get('error', {}).get('message', 'Unknown error')} (Code: {response.status_code}){Style.RESET_ALL}")
         if VERBOSE:
             print(f"{Fore.BLUE}Response: {json.dumps(response.json(), indent=2)}{Style.RESET_ALL}")
         sys.exit(1)
 
-# Function to download a file from Crowdin
 def download_file(url, output_path):
-    response = requests.get(url, stream=True)
+    """
+    Function to download a file from Crowdin
+    """
+    response = requests.get(url, stream=True, timeout=REQUEST_TIMEOUT_S)
     response.raise_for_status()
 
     with open(output_path, 'wb') as f:
         for chunk in response.iter_content(chunk_size=8192):
             f.write(chunk)
 
-# Main function to handle the logic
+
 def main():
+    """
+    Main Function
+    Fetch crowdin project info, and iterate over each locale to save the corresponding .xliff locally.
+    """
     # Retrieve the list of languages
     print(f"{Fore.WHITE}⏳ Retrieving project details...{Style.RESET_ALL}", end='\r')
-    project_response = requests.get(f"{CROWDIN_API_BASE_URL}/projects/{CROWDIN_PROJECT_ID}", 
-                                      headers={"Authorization": f"Bearer {CROWDIN_API_TOKEN}"})
+    project_response = requests.get(f"{CROWDIN_API_BASE_URL}/projects/{CROWDIN_PROJECT_ID}",
+                                      headers={"Authorization": f"Bearer {CROWDIN_API_TOKEN}"},
+                                      timeout=REQUEST_TIMEOUT_S)
     check_error(project_response)
     project_details = project_response.json()['data']
     source_language_id = project_details['sourceLanguageId']
@@ -69,7 +80,7 @@ def main():
     if not os.path.exists(DOWNLOAD_DIRECTORY):
         os.makedirs(DOWNLOAD_DIRECTORY)
 
-    project_info_file = os.path.join(DOWNLOAD_DIRECTORY, f"_project_info.json")
+    project_info_file = os.path.join(DOWNLOAD_DIRECTORY, "_project_info.json")
     with open(project_info_file, 'w', encoding='utf-8') as file:
         json.dump(project_response.json(), file, indent=2)
 
@@ -84,7 +95,7 @@ def main():
     }
     source_export_response = requests.post(f"{CROWDIN_API_BASE_URL}/projects/{CROWDIN_PROJECT_ID}/translations/exports",
                                     headers={"Authorization": f"Bearer {CROWDIN_API_TOKEN}", "Content-Type": "application/json"},
-                                    data=json.dumps(source_export_payload))
+                                    data=json.dumps(source_export_payload), timeout=REQUEST_TIMEOUT_S)
     check_error(source_export_response)
 
     if VERBOSE:
@@ -97,7 +108,7 @@ def main():
     try:
         download_file(source_download_url, source_download_path)
     except requests.exceptions.HTTPError as e:
-        print(f"\033[2K{Fore.RED}❌ {prefix} Failed to download translations for {source_lang_locale} (Error: {e}){Style.RESET_ALL}")
+        print(f"\033[2K{Fore.RED}❌ Failed to download translations for {source_lang_locale} (Error: {e}){Style.RESET_ALL}")
         if VERBOSE:
             print(f"{Fore.BLUE}Response: {e.response.text}{Style.RESET_ALL}")
         sys.exit(1)
@@ -113,7 +124,7 @@ def main():
         lang_id = language['id']
         lang_locale = language['locale']
         prefix = f"({index:02d}/{num_languages:02d})"
-        
+
         # Request export of translations for the specific language
         print(f"\033[2K{Fore.WHITE}⏳ {prefix} Exporting translations for {lang_locale}...{Style.RESET_ALL}", end='\r')
         export_payload = {
@@ -124,7 +135,7 @@ def main():
         }
         export_response = requests.post(f"{CROWDIN_API_BASE_URL}/projects/{CROWDIN_PROJECT_ID}/translations/exports",
                                         headers={"Authorization": f"Bearer {CROWDIN_API_TOKEN}", "Content-Type": "application/json"},
-                                        data=json.dumps(export_payload))
+                                        data=json.dumps(export_payload), timeout=REQUEST_TIMEOUT_S)
         check_error(export_response)
 
         if VERBOSE:
@@ -148,14 +159,15 @@ def main():
     # Download non-translatable terms (if requested)
     if CROWDIN_GLOSSARY_ID is not None and CROWDIN_CONCEPT_ID is not None:
         print(f"{Fore.WHITE}⏳ Retrieving non-translatable strings...{Style.RESET_ALL}", end='\r')
-        static_string_response = requests.get(f"{CROWDIN_API_BASE_URL}/glossaries/{CROWDIN_GLOSSARY_ID}/terms?conceptId={CROWDIN_CONCEPT_ID}&limit=500", 
-                                          headers={"Authorization": f"Bearer {CROWDIN_API_TOKEN}"})
+        static_string_response = requests.get(f"{CROWDIN_API_BASE_URL}/glossaries/{CROWDIN_GLOSSARY_ID}/terms?conceptId={CROWDIN_CONCEPT_ID}&limit=500",
+                                          headers={"Authorization": f"Bearer {CROWDIN_API_TOKEN}"},
+                                          timeout=REQUEST_TIMEOUT_S)
         check_error(static_string_response)
 
         if VERBOSE:
             print(f"{Fore.BLUE}Response: {json.dumps(static_string_response.json(), indent=2)}{Style.RESET_ALL}")
 
-        non_translatable_strings_file = os.path.join(DOWNLOAD_DIRECTORY, f"_non_translatable_strings.json")
+        non_translatable_strings_file = os.path.join(DOWNLOAD_DIRECTORY, "_non_translatable_strings.json")
         with open(non_translatable_strings_file, 'w', encoding='utf-8') as file:
             json.dump(static_string_response.json(), file, indent=2)
 

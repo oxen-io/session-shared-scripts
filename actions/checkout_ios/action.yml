@@ -1,0 +1,11 @@
+name: 'Setup for all'
+description: "Setup shared for all jobs"
+runs:
+  using: 'composite'
+  steps:
+      - name: Checkout iOS
+        uses: actions/checkout@v4
+        with:
+          repository: 'oxen-io/session-ios'
+          path: 'ios'
+          ref: 'dev'
