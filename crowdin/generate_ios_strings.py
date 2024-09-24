@@ -194,7 +194,6 @@ def convert_non_translatable_strings_to_swift(input_file, output_path):
             file.write(f'    public static let {key}: String = "{text}"\n')
 
         file.write('}\n')
-        file.write('\n')
 
 def convert_all_files(input_directory):
     # Extract the project information
