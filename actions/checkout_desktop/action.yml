@@ -8,7 +8,7 @@ runs:
         with:
           repository: 'oxen-io/session-desktop'
           path: 'desktop'
-          ref: 'standardised_strings_qa_2'
+          ref: 'unstable'
       - name: Remove existing strings
         shell: bash
         run: |
