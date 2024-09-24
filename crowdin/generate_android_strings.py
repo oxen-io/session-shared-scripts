@@ -10,21 +10,6 @@ from colorama import Fore, Style
 # Variables that should be treated as numeric (using %d)
 NUMERIC_VARIABLES = ['count', 'found_count', 'total_count']
 
-# Customizable mapping for output folder hierarchy
-# Add entries here to customize the output path for specific locales
-# Format: 'input_locale': 'output_path'
-LOCALE_PATH_MAPPING = {
-    'es-419': 'b+es+419',
-    'kmr-TR': 'kmr',
-    'hy-AM': 'b+hy',
-    'pt-BR': 'b+pt+BR',
-    'pt-PT': 'b+pt+PT',
-    'zh-CN': 'b+zh+CN',
-    'zh-TW': 'b+zh+TW',
-    'sr-CS': 'b+sr+CS',
-    'sr-SP': 'b+sr+SP'
-    # Add more mappings as needed
-}
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description='Convert a XLIFF translation files to Android XML.')
@@ -119,7 +104,7 @@ def generate_android_xml(translations, app_name):
 
     return result
 
-def convert_xliff_to_android_xml(input_file, output_dir, source_locale, locale, locale_two_letter_code, app_name):
+def convert_xliff_to_android_xml(input_file, output_dir, source_locale, locale, app_name):
     if not os.path.exists(input_file):
         raise FileNotFoundError(f"Could not find '{input_file}' in raw translations directory")
 
@@ -128,14 +113,15 @@ def convert_xliff_to_android_xml(input_file, output_dir, source_locale, locale, 
     translations = parse_xliff(input_file)
     output_data = generate_android_xml(translations, app_name if is_source_language else None)
 
+    # android is pretty smart to resolve resources for translations, see the example here:
+    # https://developer.android.com/guide/topics/resources/multilingual-support#resource-resolution-examples
+    android_safe_locale = f"b+{locale.replace('-','+')}"
+
     # Generate output files
-    output_locale = LOCALE_PATH_MAPPING.get(locale, LOCALE_PATH_MAPPING.get(locale_two_letter_code, locale_two_letter_code))
-
-
     if is_source_language:
         language_output_dir = os.path.join(output_dir, 'values')
     else:
-        language_output_dir = os.path.join(output_dir, f'values-{output_locale}')
+        language_output_dir = os.path.join(output_dir, f'values-{android_safe_locale}')
 
     os.makedirs(language_output_dir, exist_ok=True)
     language_output_file = os.path.join(language_output_dir, 'strings.xml')
@@ -207,10 +193,13 @@ def convert_all_files(input_directory):
     source_locale = source_language['locale']
     for language in [source_language] + target_languages:
         lang_locale = language['locale']
-        lang_two_letter_code = language['twoLettersCode']
+        if lang_locale == 'sh-HR':
+            # see https://en.wikipedia.org/wiki/Language_secessionism#In_Serbo-Croatian
+            print(f"\033[2K{Fore.WHITE}⏳ Skipping {lang_locale} as unsupported by android{Style.RESET_ALL}")
+            continue
         print(f"\033[2K{Fore.WHITE}⏳ Converting translations for {lang_locale} to target format...{Style.RESET_ALL}", end='\r')
         input_file = os.path.join(input_directory, f"{lang_locale}.xliff")
-        convert_xliff_to_android_xml(input_file, TRANSLATIONS_OUTPUT_DIRECTORY, source_locale, lang_locale, lang_two_letter_code, app_name)
+        convert_xliff_to_android_xml(input_file, TRANSLATIONS_OUTPUT_DIRECTORY, source_locale, lang_locale, app_name)
     print(f"\033[2K{Fore.GREEN}✅ All conversions complete{Style.RESET_ALL}")
 
 if __name__ == "__main__":
