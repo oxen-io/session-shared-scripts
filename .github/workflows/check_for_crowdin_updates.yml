@@ -92,7 +92,7 @@ jobs:
         with:
           name: session-ios
           path: |
-            ${{ github.workspace }}/ios/Session/Meta/Localizable.xcstrings
+            ${{ github.workspace }}/ios/Session/Meta/Translations/Localizable.xcstrings
             ${{ github.workspace }}/ios/SessionUtilitiesKit/General/Constants.swift
           overwrite: true
           if-no-files-found: warn
