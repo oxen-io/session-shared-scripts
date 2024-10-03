@@ -88,7 +88,12 @@ def convert_xliff_to_string_catalog(input_dir, output_dir, source_language, targ
         "version": "1.0"
     }
 
-    for language in [source_language] + target_languages:
+    # We need to sort the full language list (if the source language comes first rather than in alphabetical order
+    # then the output will differ from what Xcode generates)
+    all_languages = [source_language] + target_languages
+    sorted_languages = sorted(all_languages, key=lambda x: x['id'])
+    
+    for language in sorted_languages:
         lang_locale = language['locale']
         input_file = os.path.join(input_dir, f"{lang_locale}.xliff")
 
@@ -165,7 +170,9 @@ def convert_xliff_to_string_catalog(input_dir, output_dir, source_language, targ
     os.makedirs(output_dir, exist_ok=True)
 
     with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(string_catalog, f, ensure_ascii=False, indent=2)
+        # We need to add spaces around the `:` in the output beacuse Xcode inserts one when opening
+        # the `xcstrings` so if we don't then there is an absurd number of diffs...
+        json.dump(string_catalog, f, ensure_ascii=False, indent=2, separators=(',', ' : '))
 
 def convert_non_translatable_strings_to_swift(input_file, output_path):
     if not os.path.exists(input_file):
