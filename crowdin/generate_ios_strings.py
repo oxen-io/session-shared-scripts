@@ -8,6 +8,15 @@ from pathlib import Path
 from colorama import Fore, Style, init
 from datetime import datetime
 
+# It seems that Xcode uses different language codes and doesn't support all of the languages we get from Crowdin
+# (at least in the variants that Crowdin is specifying them in) so need to map/exclude them in order to build correctly
+LANGUAGE_MAPPING = {
+    'kmr': 'ku-TR',         # Explicitly Kurmanji in Türkiye, `ku-TR` is the general language code for Kurdish in Türkiye
+    'no': 'nb-NO',          # Norwegian general, `nb-NO` is Norwegian Bokmål in Norway and is apparently seen as the standard
+    'sr-CS': 'sr-Latn',     # Serbian (Latin)
+    'tl': None,             # Tagalog (not supported, we have Filipino which might have to be enough for now)
+}
+
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description='Convert a XLIFF translation files to Apple String Catalog.')
 parser.add_argument('raw_translations_directory', help='Directory which contains the raw translation files')
@@ -18,6 +27,19 @@ args = parser.parse_args()
 INPUT_DIRECTORY = args.raw_translations_directory
 TRANSLATIONS_OUTPUT_DIRECTORY = args.translations_output_directory
 NON_TRANSLATABLE_STRINGS_OUTPUT_PATH = args.non_translatable_strings_output_path
+
+def filter_and_map_language_ids(target_languages):
+    result = []
+    for lang in target_languages:
+        if lang['id'] in LANGUAGE_MAPPING:
+            mapped_value = LANGUAGE_MAPPING[lang['id']]
+            if mapped_value is not None:
+                lang['mapped_id'] = mapped_value
+                result.append(lang)
+        else:
+            lang['mapped_id'] = lang['id']
+            result.append(lang)
+    return result
 
 def parse_xliff(file_path):
     tree = ET.parse(file_path)
@@ -32,11 +54,42 @@ def parse_xliff(file_path):
     target_language = file_elem.get('target-language')
     if target_language is None:
         raise ValueError(f"Missing target-language in file: {file_path}")
+    
+    if target_language in LANGUAGE_MAPPING:
+        target_language = LANGUAGE_MAPPING[target_language]
 
+    # Handle plural groups first (want to make sure any warnings shown are correctly attributed to plurals or non-plurals)
+    for group in root.findall('.//ns:group[@restype="x-gettext-plurals"]', namespaces=namespace):
+        plural_forms = {}
+        resname = None
+        for trans_unit in group.findall('ns:trans-unit', namespaces=namespace):
+            if resname is None:
+                resname = trans_unit.get('resname') or trans_unit.get('id')
+            
+            target = trans_unit.find('ns:target', namespaces=namespace)
+            source = trans_unit.find('ns:source', namespaces=namespace)
+            context_group = trans_unit.find('ns:context-group', namespaces=namespace)
+
+            if context_group is not None:
+                plural_form = context_group.find('ns:context[@context-type="x-plural-form"]', namespaces=namespace)
+                if plural_form is not None:
+                    form = plural_form.text.split(':')[-1].strip().lower()
+
+                    if target is not None and target.text:
+                        plural_forms[form] = target.text
+                    elif source is not None and source.text:
+                        # If target is missing or empty, use source as a fallback
+                        plural_forms[form]  = source.text
+                        print(f"Warning: Using source text for plural form '{form}' of '{resname}' in '{target_language}' as target is missing or empty")
+
+        if resname and plural_forms:
+            translations[resname] = plural_forms
+
+    # Then handle non-plurals (ignore any existing values as they are plurals)
     for trans_unit in root.findall('.//ns:trans-unit', namespaces=namespace):
         resname = trans_unit.get('resname') or trans_unit.get('id')
-        if resname is None:
-            continue  # Skip entries without a resname or id
+        if resname is None or resname in translations:
+            continue  # Skip entries without a resname/id and entries which already exist (ie. plurals)
 
         target = trans_unit.find('ns:target', namespaces=namespace)
         source = trans_unit.find('ns:source', namespaces=namespace)
@@ -46,24 +99,7 @@ def parse_xliff(file_path):
         elif source is not None and source.text:
             # If target is missing or empty, use source as a fallback
             translations[resname] = source.text
-            print(f"Warning: Using source text for '{resname}' as target is missing or empty")
-
-    # Handle plural groups
-    for group in root.findall('.//ns:group[@restype="x-gettext-plurals"]', namespaces=namespace):
-        plural_forms = {}
-        resname = None
-        for trans_unit in group.findall('ns:trans-unit', namespaces=namespace):
-            if resname is None:
-                resname = trans_unit.get('resname') or trans_unit.get('id')
-            target = trans_unit.find('ns:target', namespaces=namespace)
-            context_group = trans_unit.find('ns:context-group', namespaces=namespace)
-            if context_group is not None:
-                plural_form = context_group.find('ns:context[@context-type="x-plural-form"]', namespaces=namespace)
-                if target is not None and target.text and plural_form is not None:
-                    form = plural_form.text.split(':')[-1].strip().lower()
-                    plural_forms[form] = target.text
-        if resname and plural_forms:
-            translations[resname] = plural_forms
+            print(f"Warning: Using source text for '{resname}' in '{target_language}' as target is missing or empty")
 
     return translations, target_language
 
@@ -87,11 +123,13 @@ def convert_xliff_to_string_catalog(input_dir, output_dir, source_language, targ
         "strings": {},
         "version": "1.0"
     }
+    target_mapped_languages = filter_and_map_language_ids(target_languages)
+    source_language['mapped_id'] = source_language['id']
 
     # We need to sort the full language list (if the source language comes first rather than in alphabetical order
     # then the output will differ from what Xcode generates)
-    all_languages = [source_language] + target_languages
-    sorted_languages = sorted(all_languages, key=lambda x: x['id'])
+    all_languages = [source_language] + target_mapped_languages
+    sorted_languages = sorted(all_languages, key=lambda x: x['mapped_id'])
     
     for language in sorted_languages:
         lang_locale = language['locale']
@@ -103,7 +141,7 @@ def convert_xliff_to_string_catalog(input_dir, output_dir, source_language, targ
         try:
             translations, target_language = parse_xliff(input_file)
         except Exception as e:
-            raise ValueError(f"Error processing file {filename}: {str(e)}")
+            raise ValueError(f"Error processing locale {lang_locale}: {str(e)}")
 
         print(f"\033[2K{Fore.WHITE}⏳ Converting translations for {target_language} to target format...{Style.RESET_ALL}", end='\r')
         sorted_translations = sorted(translations.items())
