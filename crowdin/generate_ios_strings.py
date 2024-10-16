@@ -117,6 +117,14 @@ def convert_placeholders_for_plurals(resname, translations):
 
     return converted_translations
 
+def sort_dict_case_insensitive(data):
+    if isinstance(data, dict):
+        return {k: sort_dict_case_insensitive(v) for k, v in sorted(data.items(), key=lambda item: item[0].lower())}
+    elif isinstance(data, list):
+        return [sort_dict_case_insensitive(i) for i in data]
+    else:
+        return data
+
 def convert_xliff_to_string_catalog(input_dir, output_dir, source_language, target_languages):
     string_catalog = {
         "sourceLanguage": "en",
@@ -144,9 +152,8 @@ def convert_xliff_to_string_catalog(input_dir, output_dir, source_language, targ
             raise ValueError(f"Error processing locale {lang_locale}: {str(e)}")
 
         print(f"\033[2K{Fore.WHITE}⏳ Converting translations for {target_language} to target format...{Style.RESET_ALL}", end='\r')
-        sorted_translations = sorted(translations.items())
-
-        for resname, translation in sorted_translations:
+        
+        for resname, translation in translations.items():
             if resname not in string_catalog["strings"]:
                 string_catalog["strings"][resname] = {
                     "extractionState": "manual",
@@ -204,13 +211,18 @@ def convert_xliff_to_string_catalog(input_dir, output_dir, source_language, targ
                     }
                 }
 
+    # Note: Xcode sorts the strings in a case insensitive way so do the same here, apparently some versions of
+    # Python won't maintain insertion order once a dict is manipulated so we need to finalise the dict and then
+    # generate a correctly sorted one to be saved to disk
+    sorted_string_catalog = sort_dict_case_insensitive(string_catalog)
+
     output_file = os.path.join(output_dir, 'Localizable.xcstrings')
     os.makedirs(output_dir, exist_ok=True)
 
     with open(output_file, 'w', encoding='utf-8') as f:
         # We need to add spaces around the `:` in the output beacuse Xcode inserts one when opening
         # the `xcstrings` so if we don't then there is an absurd number of diffs...
-        json.dump(string_catalog, f, ensure_ascii=False, indent=2, separators=(',', ' : '))
+        json.dump(sorted_string_catalog, f, ensure_ascii=False, indent=2, separators=(',', ' : '))
 
 def convert_non_translatable_strings_to_swift(input_file, output_path):
     if not os.path.exists(input_file):
